@@ -1,41 +1,53 @@
-const API_BASE = "https://ezanvakti.emushaf.net";
+
+const API_BASE = "https://idamedya.org/api/v1";
 
 export default async function handler(req, res) {
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+
   if (req.method !== "GET") {
+    res.setHeader("Allow", "GET");
+
     return res.status(405).json({
-      success: false,
-      error: "GET isteği gerekli."
+      ok: false,
+      error: "Yalnızca GET isteği destekleniyor."
     });
   }
 
   const { action, cityId, districtId } = req.query;
 
   let endpoint;
+  let cacheTime;
 
   if (action === "cities") {
-    endpoint = `${API_BASE}/sehirler/2`;
+    endpoint = `${API_BASE}/namaz/iller`;
+    cacheTime = 86400;
+
   } else if (action === "districts") {
     if (!/^\d+$/.test(cityId || "")) {
       return res.status(400).json({
-        success: false,
-        error: "Şehir kodu geçersiz."
+        ok: false,
+        error: "Geçerli bir şehir kodu gerekli."
       });
     }
 
-    endpoint = `${API_BASE}/ilceler/${cityId}`;
+    endpoint = `${API_BASE}/namaz/ilceler/${cityId}`;
+    cacheTime = 86400;
+
   } else if (action === "times") {
     if (!/^\d+$/.test(districtId || "")) {
       return res.status(400).json({
-        success: false,
-        error: "İlçe kodu geçersiz."
+        ok: false,
+        error: "Geçerli bir ilçe vakit kodu gerekli."
       });
     }
 
-    endpoint = `${API_BASE}/vakitler/${districtId}`;
+    endpoint = `${API_BASE}/namaz/${districtId}`;
+    cacheTime = 3600;
+
   } else {
     return res.status(400).json({
-      success: false,
-      error: "Geçersiz işlem."
+      ok: false,
+      error: "Geçersiz işlem. cities, districts veya times kullanın."
     });
   }
 
@@ -43,52 +55,40 @@ export default async function handler(req, res) {
     const response = await fetch(endpoint, {
       method: "GET",
       headers: {
-        "Accept": "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-        "Referer": "https://arasana.vercel.app/",
-        "Origin": "https://arasana.vercel.app"
-      }
+        Accept: "application/json"
+      },
+      signal: AbortSignal.timeout(15000)
     });
 
-    const responseText = await response.text();
-
     if (!response.ok) {
-      return res.status(502).json({
-        success: false,
-        error: "EzanVakti API isteği reddedildi.",
-        status: response.status,
-        details: responseText.slice(0, 1000),
-        endpoint
-      });
+      throw new Error(`API HTTP ${response.status}`);
     }
 
-    const data = JSON.parse(responseText);
+    const result = await response.json();
 
-    if (!Array.isArray(data)) {
-      throw new Error("API beklenen liste biçiminde yanıt vermedi.");
+    if (result.ok !== true || result.data === undefined) {
+      throw new Error(result.error || "API geçersiz yanıt döndürdü.");
     }
 
     res.setHeader(
       "Cache-Control",
-      action === "times"
-        ? "s-maxage=3600, stale-while-revalidate=86400"
-        : "s-maxage=86400, stale-while-revalidate=604800"
+      `s-maxage=${cacheTime}, stale-while-revalidate=86400`
     );
 
     return res.status(200).json({
-      success: true,
-      source: "EzanVakti API",
-      data
+      ok: true,
+      source: "İdame Medya",
+      action,
+      data: result.data
     });
 
   } catch (error) {
-    console.error("PRAYER ERROR:", error);
+    console.error("ARASANA PRAYER ERROR:", error);
 
     return res.status(502).json({
-      success: false,
-      error: "Namaz vakti bağlantı hatası.",
-      details: error.message,
-      endpoint
+      ok: false,
+      error: "Namaz vakitleri servisine ulaşılamadı.",
+      details: error.message
     });
   }
 }
