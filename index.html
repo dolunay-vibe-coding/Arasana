@@ -277,6 +277,42 @@
     .wordmark{ font-size:42px; }
     .globe-wrap{ width:48px; height:48px; }
   }
+
+  /* ---------- WEATHER CARD ---------- */
+  .weather-card{
+    width:100%;
+    padding:24px;
+    border-radius:22px;
+    color:#fff;
+    background:
+      radial-gradient(circle at 88% 12%,rgba(96,165,250,.30),transparent 34%),
+      linear-gradient(135deg,#101d42,#20265b 58%,#35265f);
+    border:1px solid rgba(150,185,255,.24);
+    box-shadow:0 15px 40px rgba(0,0,0,.20);
+    animation:fadeIn .45s ease;
+  }
+  .weather-top{display:flex;justify-content:space-between;align-items:center;gap:12px;}
+  .weather-brand{font-size:10px;letter-spacing:2px;color:#a9d0ff;font-weight:800;}
+  .weather-city{font-size:22px;font-weight:800;margin-top:8px;}
+  .weather-description{font-size:13px;color:#c8d9f5;margin-top:4px;}
+  .weather-icon{font-size:48px;line-height:1;}
+  .weather-temperature{font-size:72px;font-weight:800;letter-spacing:-4px;margin:14px 0;}
+  .weather-temperature small{font-size:27px;vertical-align:top;letter-spacing:0;}
+  .weather-details{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding-top:16px;border-top:1px solid rgba(255,255,255,.16);}
+  .weather-detail{display:flex;flex-direction:column;gap:6px;min-width:0;}
+  .weather-detail span{font-size:11px;color:#b9cbea;}
+  .weather-detail strong{font-size:15px;overflow-wrap:anywhere;}
+  .weather-source{font-size:10px;color:#a9c3e9;margin-top:18px;}
+  .weather-message{padding:15px 17px;border:1px solid rgba(240,71,90,.30);border-radius:14px;background:rgba(240,71,90,.09);color:#f5dce1;font-size:13px;line-height:1.55;}
+  @media(max-width:480px){
+    .weather-card{padding:19px;}
+    .weather-city{font-size:19px;}
+    .weather-temperature{font-size:62px;}
+    .weather-icon{font-size:40px;}
+    .weather-details{gap:6px;}
+    .weather-details strong{font-size:13px;}
+  }
+
 </style>
 </head>
 <body>
@@ -320,14 +356,106 @@
   const listArea = document.getElementById('listArea');
 
   function escapeHtml(str){
-    return (str || '').replace(/[&<>"']/g, m => ({
+    return String(str ?? '').replace(/[&<>"']/g, m => ({
       '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
     }[m]));
   }
 
   function domainOf(url){
-    try{ return new URL(url).hostname.replace('www.',''); }
-    catch(e){ return url; }
+    try{ return new URL(url).hostname.replace(/^www\./,''); }
+    catch(e){ return url || ''; }
+  }
+
+  // Hava durumuyla ilgili sorgularda çalışır; diğer aramalarda konum istenmez.
+  function isWeatherQuery(query){
+    const q = String(query || '').toLocaleLowerCase('tr-TR');
+    const patterns = [
+      /\bhava\s+durumu\b/,
+      /\bhava\s+nasıl\b/,
+      /\bhava\s+kaç\s+derece\b/,
+      /\bkaç\s+derece\b/,
+      /\byağmur\b/,
+      /\bsağanak\b/,
+      /\bkar\s+(yağışı|yağacak|yağıyor)\b/,
+      /\bmeteoroloji\b/,
+      /\bsıcaklık\b/,
+      /\bhava\s+tahmini\b/,
+      /\brüzg[âa]r\b/,
+      /\bnem\s+oranı\b/,
+      /\bfırtına\b/,
+      /\bdolu\s+yağışı\b/,
+      /\bweather\b/,
+      /\bforecast\b/
+    ];
+    return patterns.some(pattern => pattern.test(q));
+  }
+
+  function setStatus(message){
+    statusLine.innerHTML = '<span class="dot"></span> ' + escapeHtml(message);
+  }
+
+  function getLocation(){
+    return new Promise((resolve,reject) => {
+      if(!navigator.geolocation){
+        reject(new Error('Tarayıcınız konum özelliğini desteklemiyor.'));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        position => resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
+        }),
+        error => {
+          const messages = {
+            1:'Konum izni verilmedi. Tarayıcı ayarlarından Arasana için konum iznini açabilirsiniz.',
+            2:'Konumunuz belirlenemedi. Cihazınızın konum hizmetlerini kontrol edin.',
+            3:'Konum isteği zaman aşımına uğradı. Lütfen tekrar deneyin.'
+          };
+          reject(new Error(messages[error.code] || 'Konum alınamadı.'));
+        },
+        { enableHighAccuracy:true, timeout:15000, maximumAge:300000 }
+      );
+    });
+  }
+
+  function renderWeather(data){
+    const temperature = data.temperature ?? data.temp ?? '--';
+    const feelsLike = data.feelsLike ?? data.feels_like ?? '--';
+    const humidity = data.humidity ?? '--';
+    const windSpeed = data.windSpeed ?? data.wind_speed ?? '--';
+    const location = data.location ?? data.city ?? 'Bulunduğun konum';
+    const description = data.description ?? data.condition ?? 'Güncel hava durumu';
+    const icon = data.icon ?? '🌤️';
+
+    answerArea.insertAdjacentHTML('afterbegin', `
+      <section class="weather-card" aria-label="Güncel hava durumu">
+        <div class="weather-top">
+          <div>
+            <div class="weather-brand">ARASANA WEATHER</div>
+            <div class="weather-city">${escapeHtml(location)}</div>
+            <div class="weather-description">${escapeHtml(description)}</div>
+          </div>
+          <div class="weather-icon" aria-hidden="true">${escapeHtml(icon)}</div>
+        </div>
+        <div class="weather-temperature">${escapeHtml(temperature)}<small>°C</small></div>
+        <div class="weather-details">
+          <div class="weather-detail"><span>Hissedilen</span><strong>${escapeHtml(feelsLike)}°</strong></div>
+          <div class="weather-detail"><span>Nem</span><strong>${escapeHtml(humidity)}%</strong></div>
+          <div class="weather-detail"><span>Rüzgâr</span><strong>${escapeHtml(windSpeed)} km/sa</strong></div>
+        </div>
+        <div class="weather-source">Veri kaynağı: Meteoroloji Genel Müdürlüğü</div>
+      </section>
+    `);
+  }
+
+  function renderWeatherError(message){
+    answerArea.insertAdjacentHTML('afterbegin', `
+      <div class="weather-message">
+        <strong>Hava durumu şu anda gösterilemiyor.</strong><br>
+        ${escapeHtml(message)}
+      </div>
+    `);
   }
 
   brand.addEventListener('click', () => {
@@ -339,22 +467,22 @@
     hintRow.style.display = 'flex';
   });
 
-  hintRow.addEventListener('click', (e) => {
+  hintRow.addEventListener('click', e => {
     if(e.target.classList.contains('hint-chip')){
       input.value = e.target.textContent;
       runSearch();
     }
   });
 
-  input.addEventListener('keydown', (e) => {
+  input.addEventListener('keydown', e => {
     if(e.key === 'Enter') runSearch();
   });
+
   btn.addEventListener('click', runSearch);
 
-  // Chrome arama motoru desteği: URL'de ?q=... varsa otomatik ara
+  // Chrome arama motoru desteği: URL'de ?q=... varsa otomatik ara.
   (function autoRunFromUrl(){
-    const params = new URLSearchParams(window.location.search);
-    const q = params.get('q');
+    const q = new URLSearchParams(window.location.search).get('q');
     if(q && q.trim()){
       input.value = q.trim();
       runSearch();
@@ -363,7 +491,7 @@
 
   async function runSearch(){
     const query = input.value.trim();
-    if(!query) return;
+    if(!query || btn.disabled) return;
 
     document.body.classList.add('searched');
     hintRow.style.display = 'none';
@@ -375,23 +503,64 @@
     btn.disabled = true;
 
     try{
-      const response = await fetch("/api/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query })
+      // Hava durumu servisi yalnızca hava durumu sorgularında çağrılır.
+      if(isWeatherQuery(query)){
+        try{
+          setStatus('Konumun belirleniyor...');
+          const location = await getLocation();
+
+          setStatus('Hava durumu getiriliyor...');
+          const weatherResponse = await fetch('/api/weather', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify(location)
+          });
+
+          let weatherData;
+          try{
+            weatherData = await weatherResponse.json();
+          }catch(parseError){
+            throw new Error('Hava durumu sunucusundan geçerli bir yanıt alınamadı.');
+          }
+
+          if(!weatherResponse.ok || weatherData.error){
+            throw new Error(weatherData.error || 'Hava durumu servisi yanıt vermedi.');
+          }
+
+          renderWeather(weatherData);
+        }catch(weatherError){
+          renderWeatherError(weatherError.message || 'Konum veya hava durumu verisi alınamadı.');
+        }
+      }
+
+      // Arasana'nın mevcut arama API'si ve sonuç biçimi korunur.
+      setStatus('ARASANA aranıyor...');
+      const response = await fetch('/api/search', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({query})
       });
 
-      const parsed = await response.json();
+      let parsed;
+      try{
+        parsed = await response.json();
+      }catch(parseError){
+        throw new Error('Arama sunucusundan geçerli bir yanıt alınamadı.');
+      }
 
-      if(parsed.error){
-        throw new Error(parsed.error);
+      if(!response.ok || parsed.error){
+        throw new Error(parsed.error || 'Arama sırasında bir hata oluştu.');
       }
 
       renderResults(parsed);
 
     }catch(err){
-      console.error('ARASANA hata:', err);
-    answerArea.innerHTML = `<div class="error-box">Bir şeyler ters gitti: <strong>${escapeHtml(err.message || String(err))}</strong></div>`;
+      console.error('ARASANA hata:',err);
+      answerArea.insertAdjacentHTML('beforeend', `
+        <div class="error-box">Bir şeyler ters gitti:
+          <strong>${escapeHtml(err.message || String(err))}</strong>
+        </div>
+      `);
     }finally{
       statusLine.style.display = 'none';
       logoImg.classList.remove('spin-globe');
@@ -401,18 +570,18 @@
 
   function renderResults(parsed){
     if(parsed.answer){
-      answerArea.innerHTML = `
+      answerArea.insertAdjacentHTML('beforeend', `
         <div class="answer-card">
           <div class="answer-card-inner">
             <div class="answer-label">⚡ En faydalı cevap</div>
             <div class="answer-text">${escapeHtml(parsed.answer)}</div>
           </div>
         </div>
-      `;
+      `);
     }
 
     if(parsed.results && parsed.results.length){
-      let html = `<div class="results-list"><div class="results-list-label">Eşleşen siteler</div>`;
+      let html = '<div class="results-list"><div class="results-list-label">Eşleşen siteler</div>';
       parsed.results.forEach(r => {
         html += `
           <div class="result-item">
@@ -422,7 +591,7 @@
           </div>
         `;
       });
-      html += `</div>`;
+      html += '</div>';
       listArea.innerHTML = html;
     }
   }
