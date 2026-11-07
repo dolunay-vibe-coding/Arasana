@@ -1,4 +1,3 @@
-
 const API_BASE = "https://ezanvakti.emushaf.net";
 
 export default async function handler(req, res) {
@@ -36,18 +35,45 @@ export default async function handler(req, res) {
   } else {
     return res.status(400).json({
       success: false,
-      error: "Geçersiz action."
+      error: "Geçersiz işlem."
     });
   }
 
   try {
-    const response = await fetch(endpoint);
+    const response = await fetch(endpoint, {
+      method: "GET",
+      headers: {
+        "Accept": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+        "Referer": "https://arasana.vercel.app/",
+        "Origin": "https://arasana.vercel.app"
+      }
+    });
+
+    const responseText = await response.text();
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      return res.status(502).json({
+        success: false,
+        error: "EzanVakti API isteği reddedildi.",
+        status: response.status,
+        details: responseText.slice(0, 1000),
+        endpoint
+      });
     }
 
-    const data = await response.json();
+    const data = JSON.parse(responseText);
+
+    if (!Array.isArray(data)) {
+      throw new Error("API beklenen liste biçiminde yanıt vermedi.");
+    }
+
+    res.setHeader(
+      "Cache-Control",
+      action === "times"
+        ? "s-maxage=3600, stale-while-revalidate=86400"
+        : "s-maxage=86400, stale-while-revalidate=604800"
+    );
 
     return res.status(200).json({
       success: true,
