@@ -29,9 +29,7 @@
     position:fixed; inset:0; z-index:99999;
     display:flex; align-items:center; justify-content:center;
     padding:24px;
-    background:
-      radial-gradient(900px 600px at 50% 30%, rgba(255,255,255,.06), transparent 60%),
-      #07060a;
+    background:#000;
     color:#f2f0f5;
     font-family:'Plus Jakarta Sans', system-ui, sans-serif;
     text-align:center;
@@ -42,13 +40,27 @@
   #anma-overlay.hide{ opacity:0; pointer-events:none; transition:opacity .6s ease; }
 
   .anma-box{
-    max-width:560px; width:100%;
-    display:flex; flex-direction:column; align-items:center; gap:18px;
+    max-width:760px; width:100%;
+    display:flex; flex-direction:column; align-items:center; gap:14px;
     transform:translateY(14px); transition:transform 1.1s ease .15s;
   }
   #anma-overlay.show .anma-box{ transform:none; }
 
-  .anma-flag{ width:84px; height:84px; filter:drop-shadow(0 0 22px rgba(227,10,23,.35)); }
+  .anma-photo{
+    margin:0; width:100%; display:flex; justify-content:center; position:relative;
+  }
+  .anma-photo img{
+    display:block; width:auto; max-width:100%; max-height:46vh; height:auto;
+    -webkit-mask-image:radial-gradient(ellipse 70% 74% at 50% 48%, #000 60%, transparent 100%);
+            mask-image:radial-gradient(ellipse 70% 74% at 50% 48%, #000 60%, transparent 100%);
+    opacity:0; transition:opacity 1.4s ease .2s;
+  }
+  .anma-photo::after{
+    content:""; position:absolute; left:0; right:0; bottom:0; height:38%;
+    background:linear-gradient(to bottom, rgba(0,0,0,0), #000 92%);
+    pointer-events:none;
+  }
+  #anma-overlay.show .anma-photo img{ opacity:1; }
 
   .anma-date{
     font-size:13px; font-weight:700; letter-spacing:3px;
@@ -67,7 +79,7 @@
     width:140px;
   }
   .anma-text{
-    margin:0;
+    margin:0; max-width:560px;
     font-size:clamp(15px, 3.6vw, 18px);
     line-height:1.7;
     color:#d9d4e2;
@@ -93,15 +105,15 @@
   body.anma-lock{ overflow:hidden; }
   `;
 
-  const flag = `
-  <svg class="anma-flag" viewBox="0 0 100 100" role="img" aria-label="Türk bayrağı ay yıldız">
-    <circle cx="50" cy="50" r="46" fill="#E30A17"/>
-    <circle cx="42" cy="50" r="20" fill="#fff"/>
-    <circle cx="48.5" cy="50" r="16" fill="#E30A17"/>
-    <polygon fill="#fff" points="57.00,50.00 63.09,47.88 63.22,41.44 67.11,46.58 73.28,44.71 69.60,50.00 73.28,55.29 67.11,53.42 63.22,58.56 63.09,52.12"/>
-  </svg>`;
+  const photo = `
+  <figure class="anma-photo">
+    <img src="/img/ataturk.jpg" alt="Gazi Mustafa Kemal Atatürk" decoding="async">
+  </figure>`;
 
   function build() {
+    const pre = new Image();
+    pre.src = "/img/ataturk.jpg";
+
     const style = document.createElement("style");
     style.textContent = css;
     document.head.appendChild(style);
@@ -114,7 +126,7 @@
 
     overlay.innerHTML = `
       <div class="anma-box">
-        ${flag}
+        ${photo}
         <div class="anma-date">10 KASIM 1938</div>
         <h1 class="anma-title">Saygı, Minnet<br>ve Özlemle</h1>
         <div class="anma-line"></div>
