@@ -6,9 +6,10 @@
 //   /api/prayer?action=times&districtId=9541
 
 // Diyanet verisini sunan açık yansılar (sırayla denenir)
+// (herokuapp.com servisi kapandı, kullanılmıyor)
 const SOURCES = [
-  'https://ezanvakti.emushaf.net',
-  'https://ezanvakti.herokuapp.com'
+  'https://namazvakti.mtopal.dev',
+  'https://ezanvakti.emushaf.net'
 ];
 
 const TURKEY_ID = 2;
