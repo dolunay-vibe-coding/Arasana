@@ -2,6 +2,19 @@
 (() => {
   const API = "/api/prayer";
   let countdownTimer = null;
+  let citiesCache = null;
+  const STORE_KEY = "arasana-prayer-location";
+
+  const saveLocation = loc => {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(loc)); } catch {}
+  };
+  const readLocation = () => {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY) || "null"); }
+    catch { return null; }
+  };
+  const clearLocation = () => {
+    try { localStorage.removeItem(STORE_KEY); } catch {}
+  };
 
   const prayerNames = [
     ["İmsak", "Imsak"],
@@ -38,6 +51,7 @@
             <strong>🌙 ARASANA PRAYER</strong>
             <div id="prayer-location">Konum belirleniyor...</div>
             <small id="prayer-date"></small>
+            <button type="button" class="prayer-change" id="prayer-change">📍 Konumu değiştir</button>
           </div>
           <span>VAKİTLER</span>
         </div>
@@ -103,6 +117,7 @@
         <select id="prayer-district">
           <option value="">Önce il seçin</option>
         </select>
+        <button type="button" class="prayer-auto" id="prayer-auto">Otomatik konuma dön</button>
       </div>
     `;
 
@@ -129,9 +144,17 @@
         await loadDistrict(
           districtSelect.value,
           citySelect.options[citySelect.selectedIndex].text,
-          districtSelect.options[districtSelect.selectedIndex].text
+          districtSelect.options[districtSelect.selectedIndex].text,
+          true
         );
+        area.innerHTML = "";
       }
+    });
+
+    document.getElementById("prayer-auto").addEventListener("click", () => {
+      clearLocation();
+      area.innerHTML = "";
+      start();
     });
   }
 
@@ -238,7 +261,7 @@
       `${hours}:${minutes}:${secs}`;
   }
 
-  async function loadDistrict(districtId, cityName, districtName) {
+  async function loadDistrict(districtId, cityName, districtName, save = false) {
     showMessage("Namaz vakitleri getiriliyor...");
 
     try {
@@ -262,6 +285,7 @@
         `).join("");
 
       showMessage("");
+      if (save) saveLocation({ districtId, cityName, districtName });
 
       if (countdownTimer) clearInterval(countdownTimer);
       updateCountdown(record);
@@ -271,14 +295,44 @@
     }
   }
 
+  async function toggleManual() {
+    const area = document.getElementById("prayer-manual");
+    if (!area) return;
+
+    if (area.innerHTML.trim()) {
+      area.innerHTML = "";
+      return;
+    }
+
+    try {
+      if (!citiesCache) citiesCache = await getCities();
+      showManual(citiesCache);
+    } catch {
+      showMessage("İl listesi alınamadı. Daha sonra tekrar deneyin.");
+    }
+  }
+
   async function start() {
     createPrayerCard();
+
+    const changeBtn = document.getElementById("prayer-change");
+    if (changeBtn) changeBtn.onclick = toggleManual;
+
+    // Daha önce elle seçilmiş konum varsa onu kullan
+    const saved = readLocation();
+    if (saved && saved.districtId) {
+      showMessage("Namaz vakitleri getiriliyor...");
+      await loadDistrict(saved.districtId, saved.cityName, saved.districtName);
+      return;
+    }
+
     showMessage("Konum izni bekleniyor...");
 
     let cities;
 
     try {
-      cities = await getCities();
+      cities = citiesCache || await getCities();
+      citiesCache = cities;
     } catch (error) {
       showMessage("İl listesi alınamadı. Daha sonra tekrar deneyin.");
       return;
