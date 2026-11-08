@@ -44,7 +44,6 @@
     --card-border: rgba(255,255,255,0.10);
   }
   *{box-sizing:border-box;}
-  <script src="/js/prayer.js"></script>
   html,body{margin:0;padding:0;}
   body{
     min-height:100vh;
@@ -538,6 +537,19 @@
         }
       }
 
+      // Namaz vakitleri yalnızca namaz aramalarında çağrılır.
+      if (
+        window.ArasanaPrayer &&
+        window.ArasanaPrayer.isPrayerSearch(query)
+      ) {
+        try {
+          setStatus('Namaz vakitleri hazırlanıyor...');
+          await window.ArasanaPrayer.start();
+        } catch (prayerError) {
+          console.error('Namaz vakitleri hatası:', prayerError);
+        }
+      }
+
       // Arasana'nın mevcut arama API'si ve sonuç biçimi korunur.
       setStatus('ARASANA aranıyor...');
       const response = await fetch('/api/search', {
@@ -601,5 +613,6 @@
     }
   }
 </script>
+<script src="/js/prayer.js"></script>
 </body>
 </html>
