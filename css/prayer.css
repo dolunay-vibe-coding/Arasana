@@ -1,0 +1,172 @@
+/* ARASANA - Namaz vakitleri kartı */
+
+.arasana-prayer{
+  position:relative;
+  width:100%;
+  margin:0 0 18px;
+  padding:22px;
+  border:1px solid var(--card-border, rgba(255,255,255,.10));
+  border-radius:20px;
+  background:
+    linear-gradient(160deg, rgba(124,58,237,.18), rgba(240,71,90,.08)),
+    var(--card, rgba(255,255,255,.05));
+  color:var(--ink, #F5EEFF);
+  box-sizing:border-box;
+  font-family:inherit;
+  text-align:left;
+  overflow:hidden;
+  box-shadow:0 10px 40px rgba(0,0,0,.25);
+}
+
+.arasana-prayer *{ box-sizing:border-box; }
+
+.prayer-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+  margin-bottom:18px;
+}
+
+.prayer-header strong{
+  display:block;
+  font-size:13px;
+  font-weight:800;
+  letter-spacing:1.2px;
+  background:linear-gradient(90deg, #F5A623, #F0475A, #D6409F);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+
+.prayer-header > span{
+  flex:none;
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:1px;
+  padding:6px 11px;
+  border-radius:999px;
+  background:rgba(124,58,237,.25);
+  color:#C4B5FD;
+}
+
+#prayer-location{
+  margin-top:8px;
+  font-size:17px;
+  font-weight:700;
+}
+
+#prayer-date{
+  display:block;
+  margin-top:4px;
+  color:var(--ink-dim, #C7B8E8);
+  font-size:12px;
+}
+
+#prayer-message{
+  color:var(--ink-dim, #C7B8E8);
+  font-size:13px;
+}
+#prayer-message:empty{ display:none; }
+
+.prayer-times{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:10px;
+  margin-top:14px;
+}
+.prayer-times:empty{ display:none; }
+
+.prayer-time{
+  padding:14px 6px;
+  border-radius:14px;
+  text-align:center;
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.06);
+}
+
+.prayer-time span{
+  display:block;
+  margin-bottom:6px;
+  color:var(--ink-dim, #C7B8E8);
+  font-size:12px;
+}
+
+.prayer-time strong{
+  font-size:20px;
+  font-weight:700;
+  font-variant-numeric:tabular-nums;
+}
+
+.prayer-time.is-next{
+  background:linear-gradient(135deg, rgba(124,58,237,.45), rgba(214,64,159,.35));
+  border-color:rgba(214,64,159,.55);
+}
+
+.prayer-next{
+  margin-top:16px;
+  padding:16px;
+  border-radius:14px;
+  background:rgba(124,58,237,.16);
+  border:1px solid rgba(124,58,237,.3);
+}
+
+.prayer-next small{
+  display:block;
+  margin-bottom:6px;
+  color:#C4B5FD;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:1px;
+}
+
+.prayer-next strong{
+  display:block;
+  font-size:16px;
+}
+
+#prayer-countdown{
+  margin-top:6px;
+  font-size:28px;
+  font-weight:800;
+  font-variant-numeric:tabular-nums;
+  letter-spacing:1px;
+}
+
+.prayer-source{
+  margin-top:14px;
+  color:var(--ink-dim, #C7B8E8);
+  opacity:.75;
+  font-size:11px;
+}
+
+/* Elle il / ilçe seçimi */
+.prayer-manual{ margin-top:14px; }
+.prayer-manual:empty{ display:none; }
+
+.prayer-manual p{
+  margin:0 0 10px;
+  font-size:13px;
+  color:var(--ink-dim, #C7B8E8);
+}
+
+.prayer-manual select{
+  width:100%;
+  padding:12px 14px;
+  margin-bottom:8px;
+  border-radius:12px;
+  border:1px solid var(--card-border, rgba(255,255,255,.10));
+  background:#241A3D;
+  color:var(--ink, #F5EEFF);
+  font:inherit;
+  font-size:14px;
+  outline:none;
+}
+.prayer-manual select:focus{ border-color:#7C3AED; }
+
+@media (max-width:480px){
+  .arasana-prayer{ padding:16px; }
+  .prayer-time strong{ font-size:17px; }
+  .prayer-times{ gap:7px; }
+  #prayer-countdown{ font-size:24px; }
+}
