@@ -1,15 +1,14 @@
 
-const API_BASE = "https://idamedya.org/api/v1";
+const API_BASE = "https://namazvakti.mtopal.dev";
 
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
 
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
-
     return res.status(405).json({
       ok: false,
-      error: "Yalnızca GET isteği destekleniyor."
+      error: "Yalnızca GET destekleniyor."
     });
   }
 
@@ -19,41 +18,41 @@ export default async function handler(req, res) {
   let cacheTime;
 
   if (action === "cities") {
-    endpoint = `${API_BASE}/namaz/iller`;
+    // Türkiye'nin 81 ili
+    endpoint = `${API_BASE}/sehirler/2`;
     cacheTime = 86400;
 
   } else if (action === "districts") {
     if (!/^\d+$/.test(cityId || "")) {
       return res.status(400).json({
         ok: false,
-        error: "Geçerli bir şehir kodu gerekli."
+        error: "Geçerli bir il kodu gerekli."
       });
     }
 
-    endpoint = `${API_BASE}/namaz/ilceler/${cityId}`;
+    endpoint = `${API_BASE}/ilceler/${cityId}`;
     cacheTime = 86400;
 
   } else if (action === "times") {
     if (!/^\d+$/.test(districtId || "")) {
       return res.status(400).json({
         ok: false,
-        error: "Geçerli bir ilçe vakit kodu gerekli."
+        error: "Geçerli bir ilçe kodu gerekli."
       });
     }
 
-    endpoint = `${API_BASE}/namaz/${districtId}`;
+    endpoint = `${API_BASE}/vakitler/${districtId}`;
     cacheTime = 3600;
 
   } else {
     return res.status(400).json({
       ok: false,
-      error: "Geçersiz işlem. cities, districts veya times kullanın."
+      error: "Geçersiz işlem."
     });
   }
 
   try {
     const response = await fetch(endpoint, {
-      method: "GET",
       headers: {
         Accept: "application/json"
       },
@@ -64,10 +63,10 @@ export default async function handler(req, res) {
       throw new Error(`API HTTP ${response.status}`);
     }
 
-    const result = await response.json();
+    const data = await response.json();
 
-    if (result.ok !== true || result.data === undefined) {
-      throw new Error(result.error || "API geçersiz yanıt döndürdü.");
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error("API geçerli veri döndürmedi.");
     }
 
     res.setHeader(
@@ -77,9 +76,9 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       ok: true,
-      source: "İdame Medya",
+      source: "Diyanet verileri - Namaz Vakti API",
       action,
-      data: result.data
+      data
     });
 
   } catch (error) {
@@ -87,7 +86,7 @@ export default async function handler(req, res) {
 
     return res.status(502).json({
       ok: false,
-      error: "Namaz vakitleri servisine ulaşılamadı.",
+      error: "Namaz vakitleri şu anda alınamıyor.",
       details: error.message
     });
   }
