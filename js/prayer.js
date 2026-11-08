@@ -180,6 +180,14 @@
       );
     }
 
+    // Diyanet'te ilçe adı yoksa il merkezi ilçesini kullan
+    if (!district) {
+      district = districts.find(d =>
+        normalize(d.IlceAdi) === normalize(city.SehirAdi) ||
+        normalize(d.IlceAdi) === "merkez"
+      );
+    }
+
     if (!district) throw new Error("İlçeniz eşleştirilemedi.");
 
     return { city, district };
