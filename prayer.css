@@ -1,0 +1,125 @@
+
+.arasana-prayer {
+  width: 100%;
+  margin: 18px 0;
+  padding: 20px;
+  border: 1px solid rgba(120, 120, 160, .2);
+  border-radius: 18px;
+  background: var(--card-bg, #111827);
+  color: var(--text-color, #fff);
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.prayer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.prayer-header strong {
+  font-size: 16px;
+  letter-spacing: .5px;
+}
+
+.prayer-header span {
+  font-size: 10px;
+  padding: 7px 10px;
+  border-radius: 20px;
+  background: rgba(99, 102, 241, .15);
+  color: #818cf8;
+}
+
+#prayer-location {
+  margin-top: 7px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+#prayer-date {
+  display: block;
+  margin-top: 5px;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.prayer-times {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.prayer-time {
+  padding: 15px 5px;
+  border-radius: 12px;
+  text-align: center;
+  background: rgba(128, 128, 128, .09);
+}
+
+.prayer-time span {
+  display: block;
+  color: #9ca3af;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.prayer-time strong {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.prayer-next {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 13px;
+  background: rgba(99, 102, 241, .10);
+}
+
+.prayer-next small {
+  display: block;
+  color: #a5b4fc;
+  font-size: 11px;
+  margin-bottom: 7px;
+}
+
+.prayer-next strong {
+  display: block;
+  font-size: 16px;
+}
+
+#prayer-countdown {
+  margin-top: 7px;
+  font-size: 27px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+}
+
+.prayer-source {
+  margin-top: 15px;
+  color: #9ca3af;
+  font-size: 11px;
+}
+
+#prayer-message {
+  color: #9ca3af;
+  font-size: 13px;
+}
+
+@media (max-width: 480px) {
+  .arasana-prayer {
+    padding: 15px;
+  }
+
+  .prayer-time strong {
+    font-size: 17px;
+  }
+
+  .prayer-times {
+    gap: 7px;
+  }
+}
