@@ -1,93 +1,94 @@
 
-const API_BASE = "https://namazvakti.mtopal.dev";
+(() => {
+  const API = "/api/prayer";
 
-export default async function handler(req, res) {
-  res.setHeader("Content-Type", "application/json; charset=utf-8");
-
-  if (req.method !== "GET") {
-    res.setHeader("Allow", "GET");
-    return res.status(405).json({
-      ok: false,
-      error: "Yalnızca GET destekleniyor."
-    });
+  // Namaz aramalarını tanı
+  function isPrayerSearch(query) {
+    return /namaz|ezan|imsak|iftar|sahur|vakitleri/i.test(query);
   }
 
-  const { action, cityId, districtId } = req.query;
+  // Namaz kartının HTML tasarımı
+  function createPrayerCard() {
+    let card = document.getElementById("arasana-prayer");
 
-  let endpoint;
-  let cacheTime;
+    if (!card) {
+      card = document.createElement("section");
+      card.id = "arasana-prayer";
+      card.className = "arasana-prayer";
+      card.innerHTML = `
+        <div class="prayer-header">
+          <div>
+            <strong>🌙 ARASANA PRAYER</strong>
+            <div id="prayer-location">Konum belirleniyor...</div>
+            <small id="prayer-date"></small>
+          </div>
+          <span>VAKİTLER</span>
+        </div>
 
-  if (action === "cities") {
-    // Türkiye'nin 81 ili
-    endpoint = `${API_BASE}/sehirler/2`;
-    cacheTime = 86400;
+        <div id="prayer-message">Namaz vakitleri yükleniyor...</div>
 
-  } else if (action === "districts") {
-    if (!/^\d+$/.test(cityId || "")) {
-      return res.status(400).json({
-        ok: false,
-        error: "Geçerli bir il kodu gerekli."
-      });
+        <div class="prayer-times" id="prayer-times"></div>
+
+        <div class="prayer-next">
+          <small>SONRAKİ NAMAZ</small>
+          <strong id="prayer-next-name">--</strong>
+          <div id="prayer-countdown">--:--:--</div>
+        </div>
+
+        <div class="prayer-source">
+          Veri kaynağı: Diyanet verileri
+        </div>
+      `;
     }
 
-    endpoint = `${API_BASE}/ilceler/${cityId}`;
-    cacheTime = 86400;
+    const area = document.getElementById("answerArea");
+    if (area) area.prepend(card);
 
-  } else if (action === "times") {
-    if (!/^\d+$/.test(districtId || "")) {
-      return res.status(400).json({
-        ok: false,
-        error: "Geçerli bir ilçe kodu gerekli."
-      });
-    }
-
-    endpoint = `${API_BASE}/vakitler/${districtId}`;
-    cacheTime = 3600;
-
-  } else {
-    return res.status(400).json({
-      ok: false,
-      error: "Geçersiz işlem."
-    });
+    return card;
   }
 
-  try {
-    const response = await fetch(endpoint, {
-      headers: {
-        Accept: "application/json"
-      },
-      signal: AbortSignal.timeout(15000)
-    });
+  // API üzerinden illeri getir
+  async function getCities() {
+    const response = await fetch(`${API}?action=cities`);
+    const result = await response.json();
 
-    if (!response.ok) {
-      throw new Error(`API HTTP ${response.status}`);
-    }
+    if (!result.ok) throw new Error("İller alınamadı.");
 
-    const data = await response.json();
+    return result.data;
+  }
 
-    if (!Array.isArray(data) || data.length === 0) {
-      throw new Error("API geçerli veri döndürmedi.");
-    }
-
-    res.setHeader(
-      "Cache-Control",
-      `s-maxage=${cacheTime}, stale-while-revalidate=86400`
+  // İlçeleri getir
+  async function getDistricts(cityId) {
+    const response = await fetch(
+      `${API}?action=districts&cityId=${encodeURIComponent(cityId)}`
     );
 
-    return res.status(200).json({
-      ok: true,
-      source: "Diyanet verileri - Namaz Vakti API",
-      action,
-      data
-    });
+    const result = await response.json();
 
-  } catch (error) {
-    console.error("ARASANA PRAYER ERROR:", error);
+    if (!result.ok) throw new Error("İlçeler alınamadı.");
 
-    return res.status(502).json({
-      ok: false,
-      error: "Namaz vakitleri şu anda alınamıyor.",
-      details: error.message
-    });
+    return result.data;
   }
-}
+
+  // Namaz vakitlerini getir
+  async function getTimes(districtId) {
+    const response = await fetch(
+      `${API}?action=times&districtId=${encodeURIComponent(districtId)}`
+    );
+
+    const result = await response.json();
+
+    if (!result.ok) throw new Error("Vakitler alınamadı.");
+
+    return result.data;
+  }
+
+  // Dışarıdan kullanılacak fonksiyonlar
+  window.ArasanaPrayer = {
+    isPrayerSearch,
+    createPrayerCard,
+    getCities,
+    getDistricts,
+    getTimes
+  };
+})();
