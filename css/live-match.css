@@ -1,0 +1,246 @@
+
+/* ARASANA LIVE MATCH CARD */
+
+.ars-live-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 22px;
+  animation: arsLiveAppear .4s ease;
+}
+
+.ars-live-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 3px;
+}
+
+.ars-live-heading-title {
+  color: #f5a623;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.ars-live-heading-subtitle {
+  color: #c7b8e8;
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.ars-live-refresh {
+  border: 1px solid rgba(214, 64, 159, .4);
+  border-radius: 20px;
+  padding: 8px 14px;
+  color: #f5eeff;
+  background: rgba(124, 58, 237, .17);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ars-live-refresh:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
+.ars-live-match {
+  padding: 18px;
+  border: 1px solid rgba(214, 64, 159, .24);
+  border-radius: 19px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(124, 58, 237, .20), transparent 48%),
+    linear-gradient(135deg, #241a3d, #1b1230);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .16);
+}
+
+.ars-live-match-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ars-live-brand {
+  color: #f5a623;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+}
+
+.ars-live-status {
+  padding: 5px 9px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .5px;
+  background: rgba(255, 255, 255, .08);
+  color: #e8ddff;
+}
+
+.ars-live-status.live {
+  color: #8df0b0;
+  background: rgba(34, 197, 94, .13);
+}
+
+.ars-live-status.finished {
+  color: #c7b8e8;
+  background: rgba(255, 255, 255, .09);
+}
+
+.ars-live-status.break {
+  color: #ffd27d;
+  background: rgba(245, 166, 35, .13);
+}
+
+.ars-live-league {
+  margin-top: 12px;
+  color: #b9a9d9;
+  font-size: 11px;
+}
+
+.ars-live-match-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 17px;
+}
+
+.ars-live-teams {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  min-width: 0;
+}
+
+.ars-live-team {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: #f5eeff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ars-live-team span {
+  overflow-wrap: anywhere;
+}
+
+.ars-live-team-logo,
+.ars-live-team-placeholder {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  object-fit: contain;
+}
+
+.ars-live-team-placeholder {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .08);
+  font-size: 16px;
+}
+
+.ars-live-score-area {
+  min-width: 82px;
+  text-align: center;
+}
+
+.ars-live-score {
+  color: #fff;
+  font-size: 27px;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: 1px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ars-live-score span {
+  color: #a78bfa;
+  padding: 0 3px;
+}
+
+.ars-live-clock {
+  margin-top: 7px;
+  color: #c7b8e8;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.ars-live-clock.live {
+  color: #8df0b0;
+}
+
+.ars-live-clock.break {
+  color: #ffd27d;
+}
+
+.ars-live-source {
+  padding-top: 11px;
+  margin-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, .09);
+  color: #9585b6;
+  font-size: 10px;
+  text-align: right;
+}
+
+.ars-live-empty,
+.ars-live-error {
+  padding: 17px;
+  border: 1px solid rgba(255, 255, 255, .10);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, .04);
+  color: #c7b8e8;
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.ars-live-error {
+  border-color: rgba(240, 71, 90, .3);
+  color: #f5c8d0;
+}
+
+@keyframes arsLiveAppear {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 480px) {
+  .ars-live-match {
+    padding: 15px;
+  }
+
+  .ars-live-match-main {
+    gap: 7px;
+  }
+
+  .ars-live-team {
+    font-size: 12px;
+    gap: 7px;
+  }
+
+  .ars-live-team-logo,
+  .ars-live-team-placeholder {
+    width: 26px;
+    height: 26px;
+    flex-basis: 26px;
+  }
+
+  .ars-live-score {
+    font-size: 24px;
+  }
+}
