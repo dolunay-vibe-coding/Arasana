@@ -160,7 +160,7 @@ async function findTeams(query, apiKey) {
     try {
       const payload = await fetchProvider(path, apiKey);
       const list = getArray(payload);
-
+console.log("GOAL API TAKIM ADAYLARI:", JSON.stringify(list, null, 2));
       diagnostics.push({
         endpoint: path,
         count: list.length
