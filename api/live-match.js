@@ -7,10 +7,12 @@ const ALIASES = {
   fb: "Fenerbahçe",
   fener: "Fenerbahçe",
   bjk: "Beşiktaş",
+  kartal: "Beşiktaş",
   ts: "Trabzonspor",
   amed: "Amed Sportif Faaliyetler",
   amedspor: "Amed Sportif Faaliyetler",
   erzurum: "Erzurumspor FK",
+  erzurumspor: "Erzurumspor FK",
   corum: "Arca Çorum FK",
   antep: "Gaziantep Futbol Kulübü",
   samsun: "Samsunspor",
@@ -23,7 +25,8 @@ const STOP_WORDS = new Set([
   "bugun", "bugunku", "match", "matches",
   "live", "football", "score", "scores",
   "fikstur", "fiksturu", "takim", "takimi",
-  "karsi", "arasindaki", "ve", "ile"
+  "karsi", "arasindaki", "ve", "ile",
+  "ne", "oldu", "mi", "mu"
 ]);
 
 function normalize(value = "") {
@@ -55,15 +58,43 @@ function getTokens(query) {
 }
 
 function getArray(payload) {
-  if (Array.isArray(payload?.data)) return payload.data;
-  if (Array.isArray(payload?.data?.matches)) return payload.data.matches;
-  if (Array.isArray(payload?.matches)) return payload.matches;
   if (Array.isArray(payload)) return payload;
+
+  if (Array.isArray(payload?.data)) {
+    return payload.data;
+  }
+
+  const containers = [
+    payload?.data,
+    payload,
+    payload?.result
+  ];
+
+  const keys = [
+    "teams",
+    "matches",
+    "fixtures",
+    "results",
+    "upcoming",
+    "items"
+  ];
+
+  for (const container of containers) {
+    if (!container || typeof container !== "object") continue;
+
+    for (const key of keys) {
+      if (Array.isArray(container[key])) {
+        return container[key];
+      }
+    }
+  }
+
   return [];
 }
 
 async function fetchProvider(path, apiKey) {
   const response = await fetch(`${BASE_URL}${path}`, {
+    method: "GET",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       Accept: "application/json"
@@ -72,9 +103,17 @@ async function fetchProvider(path, apiKey) {
 
   if (response.status === 204) return {};
 
-  const payload = await response.json();
+  let payload;
 
-  if (!response.ok || payload.success === false) {
+  try {
+    payload = await response.json();
+  } catch {
+    throw new Error(
+      `GOAL API geçerli JSON döndürmedi. HTTP ${response.status}`
+    );
+  }
+
+  if (!response.ok || payload?.success === false) {
     const error = new Error(
       payload?.error?.message ||
       payload?.message ||
@@ -83,6 +122,8 @@ async function fetchProvider(path, apiKey) {
     );
 
     error.status = response.status;
+    error.details = payload?.errors || payload?.details || null;
+
     throw error;
   }
 
@@ -94,14 +135,16 @@ function teamScore(team, tokens) {
   let score = 0;
 
   for (const token of tokens) {
-    if (name === token) score += 10;
-    else if (name.includes(token)) score += 5;
+    if (name === token) {
+      score += 10;
+    } else if (name.includes(token)) {
+      score += 5;
+    }
   }
 
   return score;
 }
 
-// DİKKAT: Artık country=Turkey filtresi yok.
 async function findTeams(query, apiKey) {
   const tokens = getTokens(query);
   const found = new Map();
@@ -112,30 +155,28 @@ async function findTeams(query, apiKey) {
   }
 
   await Promise.all(tokens.map(async token => {
-    const path =
-      `/teams?search=${encodeURIComponent(token)}` +
-      `&limit=50&isActive=true`;
+    const path = `/teams?search=${encodeURIComponent(token)}`;
 
     try {
       const payload = await fetchProvider(path, apiKey);
       const list = getArray(payload);
 
       diagnostics.push({
-        searched: token,
-        count: list.length,
-        source: payload.source || "unknown"
+        endpoint: path,
+        count: list.length
       });
 
       for (const team of list) {
-        if (!team.id || !team.name) continue;
+        if (!team?.id || !team?.name) continue;
 
         const score = teamScore(team, tokens);
-        if (!score) continue;
 
-        const old = found.get(team.id);
+        if (score <= 0) continue;
 
-        if (!old || score > old.score) {
-          found.set(team.id, {
+        const previous = found.get(String(team.id));
+
+        if (!previous || score > previous.score) {
+          found.set(String(team.id), {
             ...team,
             score
           });
@@ -143,7 +184,7 @@ async function findTeams(query, apiKey) {
       }
     } catch (error) {
       diagnostics.push({
-        searched: token,
+        endpoint: path,
         error: error.message,
         status: error.status || null
       });
@@ -151,48 +192,78 @@ async function findTeams(query, apiKey) {
   }));
 
   const teams = [...found.values()]
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 2);
 
-  // İki takım aramasında iki farklı takımı seç.
-  return {
-    teams: teams.slice(0, 2),
-    diagnostics
-  };
+  return { teams, diagnostics };
 }
 
 function getTeamName(match, side) {
+  const team = match?.[`${side}Team`] ||
+    match?.[`${side}_team`];
+
   return (
-    match[`${side}TeamName`] ||
-    match[`${side}_team_name`] ||
-    match[`${side}Team`]?.name ||
+    match?.[`${side}TeamName`] ||
+    match?.[`${side}_team_name`] ||
+    match?.[`match_${side}team_name`] ||
+    team?.name ||
     "Bilinmeyen takım"
   );
 }
 
 function getTeamId(match, side) {
+  const team = match?.[`${side}Team`] ||
+    match?.[`${side}_team`];
+
   return (
-    match[`${side}TeamId`] ||
-    match[`${side}_team_id`] ||
-    match[`${side}Team`]?.id ||
+    match?.[`${side}TeamId`] ||
+    match?.[`${side}_team_id`] ||
+    match?.[`match_${side}team_id`] ||
+    team?.id ||
     null
   );
 }
 
+function getBadge(match, side) {
+  const team = match?.[`${side}Team`] ||
+    match?.[`${side}_team`];
+
+  return (
+    match?.[side === "home" ? "teamHomeBadge" : "teamAwayBadge"] ||
+    match?.[side === "home" ? "team_home_badge" : "team_away_badge"] ||
+    team?.badge ||
+    team?.logo ||
+    ""
+  );
+}
+
 function normalizeMatch(match, fallback = "UNKNOWN") {
-  const status = String(match.matchStatus || "").toUpperCase();
-  const period = String(match.matchPeriod || "").toUpperCase();
+  const rawStatus = String(
+    match?.matchStatus ||
+    match?.match_status ||
+    match?.status ||
+    ""
+  ).toUpperCase();
+
+  const period = String(
+    match?.matchPeriod ||
+    match?.match_period ||
+    match?.period ||
+    ""
+  ).toUpperCase();
 
   let type = fallback;
 
   if (
-    status === "FINISHED" ||
-    status === "AFTER_ET" ||
-    status === "AFTER_PEN" ||
+    rawStatus.includes("FINISHED") ||
+    rawStatus === "FT" ||
+    rawStatus === "AFTER_ET" ||
+    rawStatus === "AFTER_PEN" ||
     period === "FINISHED"
   ) {
     type = "FINISHED";
   } else if (
-    status === "LIVE" ||
+    rawStatus === "LIVE" ||
     period === "FIRST_HALF" ||
     period === "SECOND_HALF" ||
     period === "EXTRA_TIME" ||
@@ -200,35 +271,81 @@ function normalizeMatch(match, fallback = "UNKNOWN") {
   ) {
     type = "LIVE";
   } else if (
-    status === "SCHEDULED" ||
-    period === "NOT_STARTED"
+    rawStatus.includes("SCHEDULED") ||
+    rawStatus.includes("NOT_STARTED") ||
+    rawStatus.includes("TIMED") ||
+    rawStatus === "NS"
   ) {
     type = "UPCOMING";
   }
 
+  const kickoffUtc =
+    match?.kickoffUtc ||
+    match?.kickoff_utc ||
+    null;
+
   return {
-    id: match.id || match.apiId || "",
+    id: match?.id || match?.apiId || match?.match_id || "",
     homeTeam: getTeamName(match, "home"),
     awayTeam: getTeamName(match, "away"),
     homeTeamId: getTeamId(match, "home"),
     awayTeamId: getTeamId(match, "away"),
-    homeScore: match.homeTeamScore ?? null,
-    awayScore: match.awayTeamScore ?? null,
-    homeBadge: match.homeTeamBadge || "",
-    awayBadge: match.awayTeamBadge || "",
-    league: match.leagueName || "",
-    country: match.countryName || "",
+
+    homeScore:
+      match?.homeTeamScore ??
+      match?.home_team_score ??
+      match?.match_hometeam_score ??
+      null,
+
+    awayScore:
+      match?.awayTeamScore ??
+      match?.away_team_score ??
+      match?.match_awayteam_score ??
+      null,
+
+    homeBadge: getBadge(match, "home"),
+    awayBadge: getBadge(match, "away"),
+
+    league:
+      match?.leagueName ||
+      match?.league_name ||
+      match?.league?.name ||
+      "",
+
+    country:
+      match?.countryName ||
+      match?.country_name ||
+      "",
+
     status: type,
     period,
-    minute: match.matchMinute ?? match.matchElapsed ?? null,
-    extra: match.matchExtra ?? null,
-    kickoffUtc: match.kickoffUtc || null,
-    matchDate: match.matchDate || null,
-    matchTime: match.matchTime || null
+
+    minute:
+      match?.matchMinute ??
+      match?.matchElapsed ??
+      match?.match_minute ??
+      null,
+
+    extra: match?.matchExtra ?? null,
+    kickoffUtc,
+
+    matchDate:
+      match?.matchDate ||
+      match?.match_date ||
+      (kickoffUtc ? kickoffUtc.slice(0, 10) : null),
+
+    matchTime:
+      match?.matchTime ||
+      match?.match_time ||
+      null,
+
+    events: Array.isArray(match?.events)
+      ? match.events
+      : []
   };
 }
 
-function seasonStart() {
+function getSeasonStart() {
   const now = new Date();
   const year = now.getUTCFullYear();
 
@@ -239,17 +356,24 @@ function seasonStart() {
 
 function isCurrentSeason(match) {
   const date =
-    match.matchDate ||
-    match.kickoffUtc?.slice(0, 10) ||
+    match?.matchDate ||
+    match?.match_date ||
+    match?.kickoffUtc?.slice(0, 10) ||
+    match?.kickoff_utc?.slice(0, 10) ||
     "";
 
-  return date >= seasonStart();
+  return date >= getSeasonStart();
 }
 
 function sortMatches(matches, direction = "asc") {
-  return matches.sort((a, b) => {
-    const dateA = new Date(a.kickoffUtc || a.matchDate || 0);
-    const dateB = new Date(b.kickoffUtc || b.matchDate || 0);
+  return [...matches].sort((a, b) => {
+    const dateA = new Date(
+      a.kickoffUtc || a.matchDate || 0
+    ).getTime();
+
+    const dateB = new Date(
+      b.kickoffUtc || b.matchDate || 0
+    ).getTime();
 
     return direction === "desc"
       ? dateB - dateA
@@ -262,7 +386,10 @@ function belongsToTeam(match, team) {
   const awayId = getTeamId(match, "away");
 
   if (homeId && awayId) {
-    return homeId === team.id || awayId === team.id;
+    return (
+      String(homeId) === String(team.id) ||
+      String(awayId) === String(team.id)
+    );
   }
 
   const name = normalize(team.name);
@@ -279,13 +406,20 @@ function belongsToPair(match, team1, team2) {
 
   if (homeId && awayId) {
     return (
-      (homeId === team1.id && awayId === team2.id) ||
-      (homeId === team2.id && awayId === team1.id)
+      (
+        String(homeId) === String(team1.id) &&
+        String(awayId) === String(team2.id)
+      ) ||
+      (
+        String(homeId) === String(team2.id) &&
+        String(awayId) === String(team1.id)
+      )
     );
   }
 
   const home = normalize(getTeamName(match, "home"));
   const away = normalize(getTeamName(match, "away"));
+
   const first = normalize(team1.name);
   const second = normalize(team2.name);
 
@@ -295,64 +429,116 @@ function belongsToPair(match, team1, team2) {
   );
 }
 
-async function getTeamMatches(team, apiKey) {
-  const [upcomingPayload, resultsPayload] = await Promise.all([
-    fetchProvider(
-      `/teams/${encodeURIComponent(team.id)}/upcoming?limit=30`,
-      apiKey
+async function fetchList(path, apiKey, label, diagnostics) {
+  try {
+    const payload = await fetchProvider(path, apiKey);
+    const list = getArray(payload);
+
+    diagnostics.push({
+      name: label,
+      endpoint: path,
+      count: list.length,
+      success: true
+    });
+
+    return list;
+  } catch (error) {
+    diagnostics.push({
+      name: label,
+      endpoint: path,
+      success: false,
+      status: error.status || null,
+      error: error.message,
+      details: error.details || null
+    });
+
+    return [];
+  }
+}
+
+async function getTeamMatches(team, apiKey, diagnostics) {
+  const upcomingPath =
+    `/teams/${encodeURIComponent(team.id)}/upcoming`;
+
+  const resultsPath =
+    `/teams/${encodeURIComponent(team.id)}/results`;
+
+  const [upcomingRaw, resultsRaw] = await Promise.all([
+    fetchList(
+      upcomingPath,
+      apiKey,
+      "Yaklaşan maçlar",
+      diagnostics
     ),
-    fetchProvider(
-      `/teams/${encodeURIComponent(team.id)}/results?limit=50`,
-      apiKey
+    fetchList(
+      resultsPath,
+      apiKey,
+      "Sezon sonuçları",
+      diagnostics
     )
   ]);
 
-  const upcoming = getArray(upcomingPayload)
+  const upcoming = upcomingRaw
     .filter(match => belongsToTeam(match, team))
     .map(match => normalizeMatch(match, "UPCOMING"));
 
-  const results = getArray(resultsPayload)
+  const results = resultsRaw
     .filter(match => belongsToTeam(match, team))
     .filter(isCurrentSeason)
     .map(match => normalizeMatch(match, "FINISHED"));
 
   return {
-    upcoming: sortMatches(upcoming).slice(0, 10),
-    results: sortMatches(results, "desc").slice(0, 10)
+    upcoming: sortMatches(upcoming, "asc").slice(0, 10),
+    results: sortMatches(results, "desc").slice(0, 20)
   };
 }
 
-async function getPairMatches(team1, team2, apiKey) {
-  const [upcomingPayload, h2hPayload] = await Promise.all([
-    fetchProvider(
-      `/teams/${encodeURIComponent(team1.id)}/upcoming?limit=100`,
-      apiKey
+async function getPairMatches(team1, team2, apiKey, diagnostics) {
+  const upcomingPath =
+    `/teams/${encodeURIComponent(team1.id)}/upcoming`;
+
+  const h2hPath =
+    `/h2h/${encodeURIComponent(team1.id)}/${encodeURIComponent(team2.id)}/direct`;
+
+  const [upcomingRaw, historyRaw] = await Promise.all([
+    fetchList(
+      upcomingPath,
+      apiKey,
+      "İki takımın yaklaşan maçları",
+      diagnostics
     ),
-    fetchProvider(
-      `/h2h/${encodeURIComponent(team1.id)}/${encodeURIComponent(team2.id)}/direct`,
-      apiKey
+    fetchList(
+      h2hPath,
+      apiKey,
+      "İkili karşılaşmalar",
+      diagnostics
     )
   ]);
 
-  const upcoming = getArray(upcomingPayload)
+  const upcoming = upcomingRaw
     .filter(match => belongsToPair(match, team1, team2))
     .map(match => normalizeMatch(match, "UPCOMING"));
 
-  const history = getArray(h2hPayload)
+  const history = historyRaw
     .filter(match => belongsToPair(match, team1, team2))
     .filter(isCurrentSeason)
     .map(match => normalizeMatch(match, "FINISHED"));
 
   return {
-    nextMeeting: sortMatches(upcoming)[0] || null,
+    nextMeeting: sortMatches(upcoming, "asc")[0] || null,
     headToHead: sortMatches(history, "desc").slice(0, 20)
   };
 }
 
-async function getLiveMatches(teams, apiKey) {
-  const payload = await fetchProvider("/fixtures/live", apiKey);
+async function getLiveMatches(teams, apiKey, diagnostics) {
+  const raw = await fetchList(
+    "/fixtures/live",
+    apiKey,
+    "Canlı maçlar",
+    diagnostics
+  );
 
-  return getArray(payload)
+  return raw
     .filter(match =>
       teams.some(team => belongsToTeam(match, team))
     )
@@ -360,7 +546,11 @@ async function getLiveMatches(teams, apiKey) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader(
+    "Content-Type",
+    "application/json; charset=utf-8"
+  );
+
   res.setHeader(
     "Cache-Control",
     "public, s-maxage=60, stale-while-revalidate=120"
@@ -380,7 +570,7 @@ export default async function handler(req, res) {
   if (!apiKey) {
     return res.status(500).json({
       success: false,
-      error: "GOAL_API_KEY bulunamadı."
+      error: "GOAL_API_KEY bulunamadı. Vercel ortam değişkenini kontrol et."
     });
   }
 
@@ -392,6 +582,8 @@ export default async function handler(req, res) {
       error: "Geçerli bir arama sorgusu gerekli."
     });
   }
+
+  const diagnostics = [];
 
   try {
     const search = await findTeams(query, apiKey);
@@ -415,17 +607,18 @@ export default async function handler(req, res) {
       });
     }
 
-    const live = await getLiveMatches(teams, apiKey)
-      .catch(error => {
-        console.error("Canlı maç sorgusu:", error.message);
-        return [];
-      });
+    const live = await getLiveMatches(
+      teams,
+      apiKey,
+      diagnostics
+    );
 
     if (teams.length >= 2) {
       const pair = await getPairMatches(
         teams[0],
         teams[1],
-        apiKey
+        apiKey,
+        diagnostics
       );
 
       const matches = [
@@ -438,18 +631,37 @@ export default async function handler(req, res) {
         success: true,
         source: "GOAL API",
         mode: "PAIR",
-        teams,
+
+        teams: teams.map(team => ({
+          id: team.id,
+          name: team.name,
+          badge: team.badge || team.logo || ""
+        })),
+
         nextMeeting: pair.nextMeeting,
-        upcoming: pair.nextMeeting ? [pair.nextMeeting] : [],
+        upcoming: pair.nextMeeting
+          ? [pair.nextMeeting]
+          : [],
+
         results: pair.headToHead,
         headToHead: pair.headToHead,
         matches,
-        count: matches.length
+        count: matches.length,
+
+        debug: {
+          teamSearch: search.diagnostics,
+          requests: diagnostics
+        }
       });
     }
 
     const team = teams[0];
-    const teamMatches = await getTeamMatches(team, apiKey);
+
+    const teamMatches = await getTeamMatches(
+      team,
+      apiKey,
+      diagnostics
+    );
 
     const matches = [
       ...live,
@@ -461,27 +673,46 @@ export default async function handler(req, res) {
       success: true,
       source: "GOAL API",
       mode: "TEAM",
-      team,
-      teams,
+
+      team: {
+        id: team.id,
+        name: team.name,
+        badge: team.badge || team.logo || ""
+      },
+
+      teams: [{
+        id: team.id,
+        name: team.name,
+        badge: team.badge || team.logo || ""
+      }],
+
       upcoming: teamMatches.upcoming,
       results: teamMatches.results,
       headToHead: [],
       nextMeeting: null,
       matches,
-      count: matches.length
+      count: matches.length,
+
+      debug: {
+        teamSearch: search.diagnostics,
+        requests: diagnostics
+      }
     });
 
   } catch (error) {
-    console.error("ARASANA LIVE:", error.message);
+    console.error("ARASANA LIVE MATCH:", error.message);
 
     return res.status(error.status === 429 ? 429 : 502).json({
       success: false,
       error: error.status === 429
         ? "GOAL API istek sınırına ulaşıldı."
         : "Maç verileri alınamadı.",
+
       debug: {
         status: error.status || null,
-        message: error.message
+        message: error.message,
+        details: error.details || null,
+        requests: diagnostics
       }
     });
   }
