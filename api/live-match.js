@@ -26,7 +26,7 @@ const STOP_WORDS = new Set([
   "live", "football", "score", "scores",
   "fikstur", "fiksturu", "takim", "takimi",
   "karsi", "arasindaki", "ve", "ile",
-  "ne", "oldu", "mi", "mu"
+  "ne", "oldu", "mi", "mu", "vs"
 ]);
 
 function normalize(value = "") {
@@ -123,34 +123,43 @@ async function fetchProvider(path, apiKey) {
   return payload;
 }
 
-// Kadın takımlarını normal kulüp aramasından ayırır.
-function isWomenTeam(team) {
+// Kadın, altyapı ve rezerv takımlarını ana takım aramasından çıkarır.
+function isSecondaryTeam(team) {
   const name = normalize(team?.name);
   const badge = normalize(team?.badge || team?.logo || "");
+  const text = `${name} ${badge}`;
 
-  return (
-    name.includes("women") ||
-    name.includes("womens") ||
-    name.includes("kadin") ||
-    name.includes("bayan") ||
-    badge.includes("women") ||
-    badge.includes("womens")
-  );
+  const patterns = [
+    /\bwomen\b/,
+    /\bwomens\b/,
+    /\bkadin\b/,
+    /\bbayan\b/,
+    /\bu ?(15|16|17|18|19|20|21|22|23)\b/,
+    /\b(reserve|reserves|rezerv)\b/,
+    /\b(academy|akademi|youth|genclik)\b/,
+    /\b(ii|iii)\b/,
+    /\bb$/,
+    /_b\./
+  ];
+
+  return patterns.some(pattern => pattern.test(text));
 }
 
+// Takım adının arama kelimelerinden kaçını karşıladığını hesaplar.
 function teamScore(team, tokens) {
   const name = normalize(team.name);
-  let score = 0;
 
-  for (const token of tokens) {
-    if (name === token) {
-      score += 10;
-    } else if (name.includes(token)) {
-      score += 5;
-    }
-  }
+  const matchedTokens = tokens.filter(token =>
+    name === token || name.includes(token)
+  );
 
-  return score;
+  return {
+    score: matchedTokens.reduce(
+      (total, token) => total + (name === token ? 10 : 5),
+      0
+    ),
+    matchedTokens
+  };
 }
 
 async function findTeams(query, apiKey) {
@@ -177,19 +186,19 @@ async function findTeams(query, apiKey) {
       for (const team of list) {
         if (!team?.id || !team?.name) continue;
 
-        // Kadın takımlarını ele.
-        if (isWomenTeam(team)) continue;
+        if (isSecondaryTeam(team)) continue;
 
-        const score = teamScore(team, [token]);
+        const result = teamScore(team, tokens);
 
-        if (score <= 0) continue;
+        if (!result.score) continue;
 
         const previous = found.get(String(team.id));
 
-        if (!previous || score > previous.score) {
+        if (!previous || result.score > previous.score) {
           found.set(String(team.id), {
             ...team,
-            score
+            score: result.score,
+            matchedTokens: result.matchedTokens
           });
         }
       }
@@ -202,9 +211,32 @@ async function findTeams(query, apiKey) {
     }
   }));
 
-  const teams = [...found.values()]
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 2);
+  // Her takımın karşıladığı kelimeleri dikkate al.
+  // Aynı kulübün farklı kelimeleri ikinci takım oluşturmaz.
+  const candidates = [...found.values()]
+    .sort((a, b) =>
+      b.matchedTokens.length - a.matchedTokens.length ||
+      b.score - a.score
+    );
+
+  const teams = [];
+  const coveredTokens = new Set();
+
+  for (const team of candidates) {
+    const newTokens = team.matchedTokens.filter(
+      token => !coveredTokens.has(token)
+    );
+
+    if (!newTokens.length) continue;
+
+    teams.push(team);
+
+    for (const token of newTokens) {
+      coveredTokens.add(token);
+    }
+
+    if (teams.length === 2) break;
+  }
 
   return { teams, diagnostics };
 }
