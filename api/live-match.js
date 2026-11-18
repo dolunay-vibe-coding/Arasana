@@ -59,10 +59,7 @@ function getTokens(query) {
 
 function getArray(payload) {
   if (Array.isArray(payload)) return payload;
-
-  if (Array.isArray(payload?.data)) {
-    return payload.data;
-  }
+  if (Array.isArray(payload?.data)) return payload.data;
 
   const containers = [
     payload?.data,
@@ -71,12 +68,8 @@ function getArray(payload) {
   ];
 
   const keys = [
-    "teams",
-    "matches",
-    "fixtures",
-    "results",
-    "upcoming",
-    "items"
+    "teams", "matches", "fixtures",
+    "results", "upcoming", "items"
   ];
 
   for (const container of containers) {
@@ -130,6 +123,21 @@ async function fetchProvider(path, apiKey) {
   return payload;
 }
 
+// Kadın takımlarını normal kulüp aramasından ayırır.
+function isWomenTeam(team) {
+  const name = normalize(team?.name);
+  const badge = normalize(team?.badge || team?.logo || "");
+
+  return (
+    name.includes("women") ||
+    name.includes("womens") ||
+    name.includes("kadin") ||
+    name.includes("bayan") ||
+    badge.includes("women") ||
+    badge.includes("womens")
+  );
+}
+
 function teamScore(team, tokens) {
   const name = normalize(team.name);
   let score = 0;
@@ -160,7 +168,7 @@ async function findTeams(query, apiKey) {
     try {
       const payload = await fetchProvider(path, apiKey);
       const list = getArray(payload);
-console.log("GOAL API TAKIM ADAYLARI:", JSON.stringify(list, null, 2));
+
       diagnostics.push({
         endpoint: path,
         count: list.length
@@ -169,7 +177,10 @@ console.log("GOAL API TAKIM ADAYLARI:", JSON.stringify(list, null, 2));
       for (const team of list) {
         if (!team?.id || !team?.name) continue;
 
-        const score = teamScore(team, tokens);
+        // Kadın takımlarını ele.
+        if (isWomenTeam(team)) continue;
+
+        const score = teamScore(team, [token]);
 
         if (score <= 0) continue;
 
